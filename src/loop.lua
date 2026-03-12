@@ -23,7 +23,7 @@ local function dispatch(parts)
 end
 
 function Loop.tick()
-    local raw = HttpClient.get(conf:get("ip") .. "/coda/" .. conf:get("id"))
+    local raw = HttpClient.get(conf:get("ip") .. "/coda/adapter/" .. conf:get("id"))
 
     if raw == nil then
         return
