@@ -3,8 +3,8 @@ local HttpClient = require("lib/httpclient")
 local JsonEncode = require("lib/jsonEncode")
 local computer   = require("computer")
 local io         = require("io")
-local comp       = require("components")
-local waypoint   = comp.waypoint
+local component  = require("component")
+local waypoint   = component.waypoint
 
 local Setup      = {}
 
