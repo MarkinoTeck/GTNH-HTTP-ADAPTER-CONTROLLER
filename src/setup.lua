@@ -3,6 +3,8 @@ local HttpClient = require("lib/httpclient")
 local JsonEncode = require("lib/jsonEncode")
 local computer   = require("computer")
 local io         = require("io")
+local comp       = require("components")
+local waypoint   = comp.waypoint
 
 local Setup      = {}
 
@@ -34,6 +36,7 @@ function Setup.run(conf)
         print("ID:    " .. tostring(conf:get("id")))
         print("IP:    " .. tostring(conf:get("ip")))
         os.sleep(5)
+        waypoint.setLabel(conf:get("id"))
         return true
     end
 
