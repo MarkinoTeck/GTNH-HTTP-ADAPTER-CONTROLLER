@@ -1,6 +1,6 @@
 -- src/loop.lua
 local HttpClient = require("lib/httpclient")
-local Utils      = require("lib/utils")
+local Utils      = require("lib/robot_utils")
 local Sender     = require("lib/sender")
 local Commands   = require("src/commands")
 
@@ -11,22 +11,34 @@ function Loop.init(config)
     conf = config
 end
 
-local function dispatch(parts)
-    local command = parts[1]
+local function dispatch(raw)
+    -- Split only on first two commas to preserve JSON
+    local command, filterType, jsonData
+
+    local comma1 = raw:find(",", 1, true)
+    if comma1 then
+        command = raw:sub(1, comma1 - 1):match("^%s*(.-)%s*$")
+        local rest = raw:sub(comma1 + 1)
+
+        local comma2 = rest:find(",", 1, true)
+        if comma2 then
+            filterType = rest:sub(1, comma2 - 1):match("^%s*(.-)%s*$")
+            jsonData = rest:sub(comma2 + 1):match("^%s*(.-)%s*$")
+        else
+            filterType = rest:match("^%s*(.-)%s*$")
+        end
+    else
+        command = raw:match("^%s*(.-)%s*$")
+    end
 
     if command == "wait-a-bit" then
         os.sleep(10)
 
     elseif command == "apply-filters" then
-        -- Format: apply-filters,<type>,<json_data>
-        if #parts < 3 then
-            print("[ERROR] apply-filters requires type and data")
+        if not filterType or not jsonData then
+            print("[ERROR] apply-filters requires type and JSON data")
             return
         end
-
-        local filterType = parts[2]
-        -- Rejoin remaining parts in case JSON has commas
-        local jsonData = table.concat(parts, ",", 3)
 
         -- Parse JSON using utility function
         local ok, filterData = Utils.parseJson(jsonData)
@@ -39,7 +51,7 @@ local function dispatch(parts)
         Utils.applyFilters(filterType, filterData)
 
     else
-        print("Unknown command: " .. tostring(command))
+        print("[WARN] Unknown command: " .. tostring(command))
     end
 end
 
@@ -57,8 +69,7 @@ function Loop.tick()
         return
     end
 
-    print(raw)
-    dispatch(Utils.split(raw, ","))
+    dispatch(raw)
 end
 
 return Loop

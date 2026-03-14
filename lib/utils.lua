@@ -1,9 +1,11 @@
--- lib/utils.lua
+-- lib/robot_utils.lua
 local Utils = {}
 
 function Utils.split(str, sep)
     local parts = {}
     for part in string.gmatch(str, "([^" .. sep .. "]+)") do
+        -- Trim whitespace from each part
+        part = part:match("^%s*(.-)%s*$")
         table.insert(parts, part)
     end
     return parts
@@ -38,7 +40,7 @@ end
 function Utils.applyItemFilters(exportbus, database, filters, numSlots)
     numSlots = numSlots or 9
 
-    print("=== Applying item filters ===")
+    print("[INFO] Applying item filters...")
 
     -- Detect TARGET bus side on the adapter
     local targetSide = Utils.detectExportBusSide(exportbus, false)
@@ -47,12 +49,14 @@ function Utils.applyItemFilters(exportbus, database, filters, numSlots)
         return false
     end
 
+    local appliedCount = 0
+
     -- Apply filters to each slot
     for slot = 1, numSlots do
         local f = filters[slot]
 
         if f == nil then
-            print(string.format("  [%d] (empty) — skipping", slot))
+            -- Skip empty slots silently
         elseif type(f) == "table" then
             -- Support both naming conventions
             local itemName   = f.itemName or f.name
@@ -72,26 +76,23 @@ function Utils.applyItemFilters(exportbus, database, filters, numSlots)
                 if applyOk then
                     print(string.format("  [%d] OK    %-32s (%s @ %d)",
                         slot, label, itemName, itemDamage))
+                    appliedCount = appliedCount + 1
                 else
                     print(string.format("  [%d] FAIL  %s — %s",
                         slot, label, tostring(applyErr)))
                 end
-            else
-                print(string.format("  [%d] SKIP  slot has no itemName", slot))
             end
-        else
-            print(string.format("  [%d] unexpected type: %s", slot, type(f)))
         end
     end
 
-    print("=== Item filter application complete ===")
+    print("[INFO] Item filters applied: " .. appliedCount .. " slot(s)")
     return true
 end
 
 function Utils.applyFluidFilters(exportbus, database, filters, numSlots)
     numSlots = numSlots or 9
 
-    print("=== Applying fluid filters ===")
+    print("[INFO] Applying fluid filters...")
 
     -- Detect TARGET bus side on the adapter
     local targetSide = Utils.detectExportBusSide(exportbus, true)
@@ -100,12 +101,14 @@ function Utils.applyFluidFilters(exportbus, database, filters, numSlots)
         return false
     end
 
+    local appliedCount = 0
+
     -- Apply filters to each slot
     for slot = 1, numSlots do
         local f = filters[slot]
 
         if f == nil then
-            print(string.format("  [%d] (empty) — skipping", slot))
+            -- Skip empty slots silently
         elseif type(f) == "table" then
             local fluidName   = f.name or "?"
             local displayName = f.displayName or fluidName
@@ -124,20 +127,17 @@ function Utils.applyFluidFilters(exportbus, database, filters, numSlots)
                 )
                 if applyOk then
                     print(string.format("  [%d] OK    %-28s (%s)", slot, displayName, fluidName))
+                    appliedCount = appliedCount + 1
                 else
                     print(string.format("  [%d] FAIL  %s — %s", slot, displayName, tostring(applyErr)))
                 end
             else
-                print(string.format("  [%d] SKIP  %-28s no container registered for '%s'",
-                    slot, displayName, fluidName))
-                print(string.format("             Fix: put its filled bucket/cell in database slot %d", slot))
+                print(string.format("  [%d] SKIP  %-28s (no container registered)", slot, displayName))
             end
-        else
-            print(string.format("  [%d] unexpected type: %s", slot, type(f)))
         end
     end
 
-    print("=== Fluid filter application complete ===")
+    print("[INFO] Fluid filters applied: " .. appliedCount .. " slot(s)")
     return true
 end
 
@@ -183,13 +183,40 @@ end
 function Utils.parseJson(jsonData)
     local ok, filterData
     ok, filterData = pcall(function()
-        -- Normalize JSON: convert single quotes to double quotes
-        -- This handles JSON from JavaScript that may use single quotes
-        local normalized = jsonData:gsub("'", '"')
+        if type(jsonData) ~= "string" then
+            error("jsonData is not a string: " .. type(jsonData))
+        end
+
+        local normalized = jsonData
+
+        -- Trim whitespace
+        normalized = normalized:match("^%s*(.-)%s*$")
+
+        -- Convert single quotes to double quotes
+        normalized = normalized:gsub("'", '"')
+
+        -- Convert JSON array syntax [...] to Lua table syntax {...}
+        if normalized:sub(1, 1) == "[" and normalized:sub(-1) == "]" then
+            local content = normalized:sub(2, -2)  -- Extract content between [ and ]
+            normalized = "{" .. content .. "}"
+        end
+
+        -- Convert JSON object key syntax to Lua table syntax
+        -- Pattern: "key": becomes ["key"]=
+        normalized = normalized:gsub('("[^"]-")%s*:', '[%1]=')
 
         -- Parse using load (Lua 5.4)
-        return load("return " .. normalized)()
+        local func = load("return " .. normalized)
+        if not func then
+            error("load() returned nil - syntax error in normalized Lua table")
+        end
+
+        return func()
     end)
+
+    if not ok then
+        print("[ERROR] JSON parsing failed: " .. tostring(filterData))
+    end
 
     return ok, filterData
 end
