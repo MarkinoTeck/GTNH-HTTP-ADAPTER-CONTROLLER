@@ -1,6 +1,6 @@
 -- src/loop.lua
 local HttpClient = require("lib/httpclient")
-local Utils      = require("lib/robot_utils")
+local Utils      = require("lib/utils")
 local Sender     = require("lib/sender")
 local Commands   = require("src/commands")
 
