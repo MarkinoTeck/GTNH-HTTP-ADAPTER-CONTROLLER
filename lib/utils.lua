@@ -183,7 +183,12 @@ end
 function Utils.parseJson(jsonData)
     local ok, filterData
     ok, filterData = pcall(function()
-        return load("return " .. jsonData)()
+        -- Normalize JSON: convert single quotes to double quotes
+        -- This handles JSON from JavaScript that may use single quotes
+        local normalized = jsonData:gsub("'", '"')
+
+        -- Parse using load (Lua 5.4)
+        return load("return " .. normalized)()
     end)
 
     return ok, filterData
