@@ -1,4 +1,4 @@
--- lib/robot_utils.lua
+-- lib/utils.lua
 local Utils = {}
 
 function Utils.split(str, sep)
